@@ -17,7 +17,7 @@ import '../styles/global.css';
   <body>
     <div class="min-h-screen">
       <header class="border-b border-line bg-white/80">
-        <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8">
+        <div class="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-4">
           <a href="#inicio" class="flex items-center gap-3 rounded-xl" aria-label="Vaquita, inicio">
             <span class="grid size-10 place-items-center rounded-2xl bg-leaf text-white shadow-sm shadow-leaf/20">
               <svg viewBox="0 0 24 24" class="size-6" fill="none" aria-hidden="true">
@@ -30,11 +30,11 @@ import '../styles/global.css';
               <span class="block text-xs text-muted">Cuentas claras, buenos planes</span>
             </span>
           </a>
-          <div class="flex items-center gap-2">
+          <div class="flex w-full min-w-0 items-center gap-1.5 sm:w-auto sm:gap-2">
             <label for="trip-switcher" class="sr-only">Cambiar de salida</label>
-            <select id="trip-switcher" class="max-w-36 rounded-lg border border-line bg-white px-2.5 py-2 text-sm font-semibold text-ink sm:max-w-48" aria-label="Cambiar de salida"></select>
-            <button id="share-trip" type="button" class="rounded-lg border border-leaf px-3 py-2 text-sm font-semibold text-leaf transition hover:bg-[#eef6ef]">Compartir</button>
-            <button id="clear-trip" type="button" class="rounded-lg px-3 py-2 text-sm font-semibold text-muted transition hover:bg-paper hover:text-ink">Nueva salida</button>
+            <select id="trip-switcher" class="min-h-11 w-0 min-w-0 max-w-36 flex-1 rounded-lg border border-line bg-white px-2 py-2 text-xs font-semibold text-ink sm:w-auto sm:flex-none sm:px-2.5 sm:text-sm sm:max-w-48" aria-label="Cambiar de salida"></select>
+            <button id="share-trip" type="button" class="min-h-11 shrink-0 rounded-lg border border-leaf px-2.5 py-2 text-xs font-semibold text-leaf transition hover:bg-[#eef6ef] sm:px-3 sm:text-sm">Compartir</button>
+            <button id="clear-trip" type="button" class="min-h-11 shrink-0 rounded-lg px-2.5 py-2 text-xs font-semibold text-muted transition hover:bg-paper hover:text-ink sm:px-3 sm:text-sm">Nueva salida</button>
           </div>
         </div>
       </header>
@@ -64,8 +64,8 @@ import '../styles/global.css';
           </div>
         </section>
 
-        <div class="grid items-start gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
-          <aside class="space-y-5">
+        <div class="grid min-w-0 items-start gap-6 lg:grid-cols-[290px_minmax(0,1fr)]">
+          <aside class="min-w-0 space-y-5">
             <section class="rounded-3xl border border-line bg-white p-5 shadow-sm shadow-ink/[0.025] sm:p-6">
               <div class="mb-5 flex items-center justify-between">
                 <div>
@@ -97,7 +97,7 @@ import '../styles/global.css';
             </section>
           </aside>
 
-          <div class="space-y-6">
+          <div class="min-w-0 space-y-6">
             <section class="rounded-3xl bg-[#1f6847] p-6 text-white shadow-lg shadow-[#1f6847]/10 sm:p-8">
               <div class="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
                 <div>
@@ -113,8 +113,8 @@ import '../styles/global.css';
             </section>
 
             <section class="rounded-3xl border border-line bg-white p-5 shadow-sm shadow-ink/[0.025] sm:p-7">
-              <div class="mb-6 flex items-start justify-between gap-4">
-                <div>
+              <div class="mb-6 flex items-start justify-between gap-3 sm:gap-4">
+                <div class="min-w-0">
                   <p class="text-xs font-bold uppercase tracking-[0.15em] text-leaf">Nuevo movimiento</p>
                   <h2 class="mt-1 text-xl font-bold tracking-tight">Añadir un gasto</h2>
                   <p class="mt-1 text-sm text-muted">¿Quién pagó y entre quiénes se reparte?</p>
@@ -123,33 +123,33 @@ import '../styles/global.css';
                   <svg viewBox="0 0 24 24" class="size-5" fill="none" aria-hidden="true"><path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
                 </span>
               </div>
-              <form id="expense-form" class="space-y-5">
+              <form id="expense-form" class="min-w-0 space-y-5">
                 <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_170px]">
-                  <div>
+                  <div class="min-w-0">
                     <label for="expense-description" class="mb-1.5 block text-sm font-semibold">Concepto</label>
-                    <input id="expense-description" type="text" maxlength="70" placeholder="Ej. Cena, gasolina…" class="w-full rounded-xl border border-line bg-white px-3.5 py-3 text-sm placeholder:text-gray-400" />
+                    <input id="expense-description" type="text" maxlength="70" placeholder="Ej. Cena, gasolina…" class="w-full min-w-0 rounded-xl border border-line bg-white px-3.5 py-3 text-sm placeholder:text-gray-400" />
                   </div>
                   <div>
                     <label for="expense-amount" class="mb-1.5 block text-sm font-semibold">Importe</label>
-                    <div class="relative">
+                    <div class="relative min-w-0">
                       <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-muted">S/.</span>
-                      <input id="expense-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" class="w-full rounded-xl border border-line bg-white py-3 pl-12 pr-3.5 text-sm placeholder:text-gray-400" />
+                      <input id="expense-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" class="w-full min-w-0 rounded-xl border border-line bg-white py-3 pl-12 pr-3.5 text-sm placeholder:text-gray-400" />
                     </div>
                   </div>
                 </div>
                 <div class="grid gap-4 sm:grid-cols-2">
-                  <div>
+                  <div class="min-w-0">
                     <label for="expense-payer" class="mb-1.5 block text-sm font-semibold">Lo pagó</label>
-                    <select id="expense-payer" class="w-full rounded-xl border border-line bg-white px-3.5 py-3 text-sm text-ink disabled:bg-paper disabled:text-muted" disabled><option value="">Añade participantes primero</option></select>
+                    <select id="expense-payer" class="w-full min-w-0 rounded-xl border border-line bg-white px-3.5 py-3 text-sm text-ink disabled:bg-paper disabled:text-muted" disabled><option value="">Añade participantes primero</option></select>
                   </div>
-                  <div>
+                  <div class="min-w-0">
                     <label for="split-mode" class="mb-1.5 block text-sm font-semibold">Cómo repartir</label>
-                    <select id="split-mode" class="w-full rounded-xl border border-line bg-white px-3.5 py-3 text-sm text-ink"><option value="equal">A partes iguales</option><option value="custom">Importe por persona</option></select>
+                    <select id="split-mode" class="w-full min-w-0 rounded-xl border border-line bg-white px-3.5 py-3 text-sm text-ink"><option value="equal">A partes iguales</option><option value="custom">Importe por persona</option></select>
                   </div>
                 </div>
                 <fieldset>
                   <legend class="mb-2 text-sm font-semibold">¿Quiénes participan?</legend>
-                  <div id="expense-participants" class="grid gap-2 sm:grid-cols-2"></div>
+                  <div id="expense-participants" class="grid min-w-0 gap-2 sm:grid-cols-2"></div>
                   <p id="participants-empty" class="rounded-xl bg-paper px-4 py-3 text-sm text-muted">Añade participantes al grupo para poder repartir gastos.</p>
                 </fieldset>
                 <p id="expense-error" class="min-h-4 text-sm text-red-600" role="status"></p>
