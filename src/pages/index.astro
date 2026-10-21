@@ -30,9 +30,24 @@ import '../styles/global.css';
               <span class="block text-xs text-muted">Cuentas claras, buenos planes</span>
             </span>
           </a>
-          <button id="clear-trip" type="button" class="rounded-lg px-3 py-2 text-sm font-semibold text-muted transition hover:bg-paper hover:text-ink">Nueva salida</button>
+          <div class="flex items-center gap-2">
+            <label for="trip-switcher" class="sr-only">Cambiar de salida</label>
+            <select id="trip-switcher" class="max-w-36 rounded-lg border border-line bg-white px-2.5 py-2 text-sm font-semibold text-ink sm:max-w-48" aria-label="Cambiar de salida"></select>
+            <button id="share-trip" type="button" class="rounded-lg border border-leaf px-3 py-2 text-sm font-semibold text-leaf transition hover:bg-[#eef6ef]">Compartir</button>
+            <button id="clear-trip" type="button" class="rounded-lg px-3 py-2 text-sm font-semibold text-muted transition hover:bg-paper hover:text-ink">Nueva salida</button>
+          </div>
         </div>
       </header>
+
+      <aside id="shared-banner" hidden class="border-b border-[#cfe5d2] bg-[#eff8ef]">
+        <div class="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <p id="shared-message" class="text-sm leading-6 text-[#315c3b]" role="status"></p>
+          <div class="flex shrink-0 gap-2">
+            <button id="save-shared-copy" type="button" class="rounded-xl bg-leaf px-4 py-2.5 text-sm font-bold text-white transition hover:bg-leaf-dark">Guardar copia</button>
+            <button id="leave-shared-preview" type="button" class="rounded-xl border border-[#b9d8be] bg-white px-4 py-2.5 text-sm font-semibold text-[#315c3b] transition hover:bg-[#f6fbf6]">Volver a mis salidas</button>
+          </div>
+        </div>
+      </aside>
 
       <main id="inicio" class="mx-auto max-w-7xl px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
         <section class="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
@@ -44,7 +59,8 @@ import '../styles/global.css';
           </div>
           <div class="flex items-center gap-2 self-start rounded-full border border-line bg-white px-3.5 py-2 text-sm text-muted sm:self-auto">
             <span class="size-2 rounded-full bg-[#73b78c]"></span>
-            <span>Guardado en este dispositivo</span>
+            <span id="save-status">Guardado en este dispositivo</span>
+            <span id="share-status" class="text-xs font-medium text-leaf" role="status" aria-live="polite"></span>
           </div>
         </section>
 

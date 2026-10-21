@@ -6,21 +6,25 @@ import {
   type Person,
   type Transfer,
 } from '../lib/balances';
+import { decodeSharedTrip, encodeSharedTrip, type SharedTrip } from '../lib/sharing';
 
-interface Trip {
-  name: string;
-  people: Person[];
-  expenses: Expense[];
-  transfers: Transfer[];
-}
+interface Trip extends SharedTrip { id: string }
 
-const STORAGE_KEY = 'vaquita-trip-v1';
+const STORAGE_KEY = 'vaquita-trips-v1';
+const LEGACY_STORAGE_KEY = 'vaquita-trip-v1';
 const amountFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const formatMoney = (cents: number) => `S/. ${amountFormat.format(cents / 100)}`;
 const dateFormat = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
-const defaultTrip: Trip = { name: 'Nuestra salida', people: [], expenses: [], transfers: [] };
+const newTrip = (name = 'Nuestra salida'): Trip => ({ id: makeId(), name, people: [], expenses: [], transfers: [] });
 
-let trip = loadTrip();
+const savedState = loadTrips();
+let savedTrips = savedState.trips;
+let activeTripId = savedState.activeTripId;
+const sharedLink = readSharedLink();
+let isSharedPreview = Boolean(sharedLink.trip);
+let trip = sharedLink.trip
+  ? { ...sharedLink.trip, id: makeId() }
+  : savedTrips.find(({ id }) => id === activeTripId) ?? savedTrips[0] ?? newTrip();
 let selectedPeople = new Set(trip.people.map(({ id }) => id));
 let customShares: Record<string, string> = {};
 
@@ -32,7 +36,15 @@ const byId = <T extends HTMLElement>(id: string) => {
 
 const elements = {
   tripName: byId<HTMLInputElement>('trip-name'),
+  tripSwitcher: byId<HTMLSelectElement>('trip-switcher'),
   clearTrip: byId<HTMLButtonElement>('clear-trip'),
+  shareTrip: byId<HTMLButtonElement>('share-trip'),
+  shareStatus: byId<HTMLSpanElement>('share-status'),
+  saveStatus: byId<HTMLSpanElement>('save-status'),
+  sharedBanner: byId<HTMLElement>('shared-banner'),
+  sharedMessage: byId<HTMLParagraphElement>('shared-message'),
+  saveSharedCopy: byId<HTMLButtonElement>('save-shared-copy'),
+  leaveSharedPreview: byId<HTMLButtonElement>('leave-shared-preview'),
   personForm: byId<HTMLFormElement>('person-form'),
   personName: byId<HTMLInputElement>('person-name'),
   personError: byId<HTMLParagraphElement>('person-error'),
@@ -67,32 +79,84 @@ const elements = {
   transfersEmpty: byId<HTMLParagraphElement>('transfers-empty'),
 };
 
-function loadTrip(): Trip {
+function makeId() {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeStoredTrip(value: unknown): Trip | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const candidate = value as Partial<Trip>;
+  if (typeof candidate.name !== 'string'
+    || !Array.isArray(candidate.people)
+    || !Array.isArray(candidate.expenses)
+    || !Array.isArray(candidate.transfers)) return null;
+  return {
+    id: typeof candidate.id === 'string' && candidate.id ? candidate.id : makeId(),
+    name: candidate.name,
+    people: candidate.people as Person[],
+    expenses: candidate.expenses as Expense[],
+    transfers: candidate.transfers as Transfer[],
+  };
+}
+
+function loadTrips(): { trips: Trip[]; activeTripId: string } {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return structuredClone(defaultTrip);
-    const parsed = JSON.parse(saved) as Partial<Trip>;
-    return {
-      name: typeof parsed.name === 'string' ? parsed.name : defaultTrip.name,
-      people: Array.isArray(parsed.people) ? parsed.people : [],
-      expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
-      transfers: Array.isArray(parsed.transfers) ? parsed.transfers : [],
-    };
+    if (saved) {
+      const parsed: unknown = JSON.parse(saved);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        const stored = parsed as { trips?: unknown; activeTripId?: unknown };
+        const trips = Array.isArray(stored.trips)
+          ? stored.trips.map(normalizeStoredTrip).filter((item): item is Trip => item !== null)
+          : [];
+        if (trips.length > 0) {
+          const activeTripId = trips.some(({ id }) => id === stored.activeTripId)
+            ? stored.activeTripId as string
+            : trips[0].id;
+          return { trips, activeTripId };
+        }
+      }
+    }
+
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy) {
+      const migrated = normalizeStoredTrip(JSON.parse(legacy));
+      if (migrated) return { trips: [migrated], activeTripId: migrated.id };
+    }
   } catch {
-    return structuredClone(defaultTrip);
+    // Recover with a fresh local collection if saved browser data is malformed.
   }
+  const initialTrip = newTrip();
+  return { trips: [initialTrip], activeTripId: initialTrip.id };
 }
 
 function saveTrip() {
+  if (isSharedPreview) return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trip));
+    const index = savedTrips.findIndex(({ id }) => id === trip.id);
+    if (index === -1) savedTrips.push(trip);
+    else savedTrips[index] = trip;
+    activeTripId = trip.id;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ activeTripId, trips: savedTrips }));
   } catch {
     // The app remains usable if the browser blocks local storage.
   }
 }
 
-function makeId() {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+function readSharedLink(): { trip: SharedTrip | null; error: string | null } {
+  const hash = window.location.hash;
+  const hashMatch = hash.match(/^#share-content=(.*)$/);
+  const queryPayload = new URLSearchParams(window.location.search).get('share-content');
+  const payload = hashMatch?.[1] ?? queryPayload;
+  if (!payload) return { trip: null, error: null };
+  try {
+    return { trip: decodeSharedTrip(payload), error: null };
+  } catch (error) {
+    return {
+      trip: null,
+      error: error instanceof Error ? error.message : 'No se pudo abrir el enlace compartido.',
+    };
+  }
 }
 
 function escapeHtml(value: string) {
@@ -144,6 +208,40 @@ function renderPeople() {
 
 function initials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toLocaleUpperCase('es')).join('');
+}
+
+function renderTripSwitcher() {
+  elements.tripSwitcher.innerHTML = savedTrips.map((savedTrip) =>
+    `<option value="${escapeHtml(savedTrip.id)}">${escapeHtml(savedTrip.name || 'Salida sin nombre')}</option>`,
+  ).join('');
+  elements.tripSwitcher.value = activeTripId;
+}
+
+function renderSharedBanner() {
+  const showPreview = isSharedPreview && sharedLink.trip !== null;
+  const showError = !isSharedPreview && sharedLink.error !== null;
+  elements.sharedBanner.hidden = !showPreview && !showError;
+  elements.saveSharedCopy.hidden = !showPreview;
+  elements.leaveSharedPreview.hidden = !showPreview && !showError;
+  elements.leaveSharedPreview.textContent = showPreview ? 'Volver a mis salidas' : 'Cerrar aviso';
+  if (showPreview) {
+    elements.sharedMessage.textContent = `Estás viendo una copia compartida de «${trip.name}». Guárdala como una salida nueva para conservarla; tus salidas actuales no se modificarán. Cualquiera que tenga el enlace podrá ver estos datos.`;
+  } else if (showError) {
+    elements.sharedMessage.textContent = `${sharedLink.error} Se abrió tu salida guardada en este dispositivo.`;
+  }
+}
+
+function applySharedPreviewMode() {
+  const main = byId<HTMLElement>('inicio');
+  main.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input, select, button').forEach((control) => {
+    control.disabled = isSharedPreview;
+  });
+  elements.tripName.readOnly = isSharedPreview;
+  elements.tripSwitcher.disabled = isSharedPreview;
+  elements.shareTrip.disabled = isSharedPreview;
+  elements.clearTrip.disabled = isSharedPreview;
+  elements.saveStatus.textContent = isSharedPreview ? 'Vista previa compartida' : 'Guardado en este dispositivo';
+  renderSharedBanner();
 }
 
 function renderExpenseParticipants() {
@@ -216,18 +314,97 @@ function renderTransfers() {
 
 function render() {
   elements.tripName.value = trip.name;
+  renderTripSwitcher();
   renderPeople();
   renderBalances();
   renderExpenses();
   renderSuggestions();
   renderTransfers();
   saveTrip();
+  applySharedPreviewMode();
+}
+
+function clearShareFromUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('share-content');
+  if (url.hash.startsWith('#share-content=')) url.hash = '';
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
+async function copyShareLink() {
+  elements.shareStatus.textContent = '';
+  try {
+    const payload = encodeSharedTrip(trip);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('share-content');
+    url.hash = `share-content=${payload}`;
+    await navigator.clipboard.writeText(url.toString());
+    elements.shareStatus.textContent = 'Enlace copiado';
+  } catch (error) {
+    elements.shareStatus.textContent = error instanceof Error
+      ? error.message
+      : 'No se pudo crear el enlace compartido.';
+  }
+}
+
+function saveSharedCopy() {
+  if (!isSharedPreview) return;
+  const copy: Trip = {
+    ...trip,
+    id: makeId(),
+    name: `${trip.name} (copia)`.slice(0, 60),
+    people: structuredClone(trip.people),
+    expenses: structuredClone(trip.expenses),
+    transfers: structuredClone(trip.transfers),
+  };
+  savedTrips.push(copy);
+  activeTripId = copy.id;
+  trip = copy;
+  selectedPeople = new Set(copy.people.map(({ id }) => id));
+  customShares = {};
+  isSharedPreview = false;
+  clearShareFromUrl();
+  render();
+}
+
+function leaveSharedPreview() {
+  if (!isSharedPreview) {
+    clearShareFromUrl();
+    elements.sharedBanner.hidden = true;
+    return;
+  }
+  isSharedPreview = false;
+  trip = savedTrips.find(({ id }) => id === activeTripId) ?? savedTrips[0];
+  selectedPeople = new Set(trip.people.map(({ id }) => id));
+  customShares = {};
+  clearShareFromUrl();
+  render();
 }
 
 elements.tripName.addEventListener('input', () => {
   trip.name = elements.tripName.value.trim() || 'Nuestra salida';
+  renderTripSwitcher();
   saveTrip();
 });
+
+elements.tripSwitcher.addEventListener('change', () => {
+  const selectedTrip = savedTrips.find(({ id }) => id === elements.tripSwitcher.value);
+  if (!selectedTrip) return;
+  activeTripId = selectedTrip.id;
+  trip = selectedTrip;
+  selectedPeople = new Set(trip.people.map(({ id }) => id));
+  customShares = {};
+  elements.expenseForm.reset();
+  elements.transferForm.reset();
+  render();
+});
+
+elements.shareTrip.addEventListener('click', () => {
+  void copyShareLink();
+});
+
+elements.saveSharedCopy.addEventListener('click', saveSharedCopy);
+elements.leaveSharedPreview.addEventListener('click', leaveSharedPreview);
 
 elements.personForm.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -345,11 +522,9 @@ elements.transferList.addEventListener('click', (event) => {
 });
 
 elements.clearTrip.addEventListener('click', () => {
-  if (trip.people.length || trip.expenses.length || trip.transfers.length) {
-    const confirmed = window.confirm('¿Quieres empezar una salida nueva? Se borrarán los datos guardados de esta salida en este dispositivo.');
-    if (!confirmed) return;
-  }
-  trip = structuredClone(defaultTrip);
+  trip = newTrip();
+  savedTrips.push(trip);
+  activeTripId = trip.id;
   selectedPeople = new Set();
   customShares = {};
   elements.expenseForm.reset();
