@@ -227,6 +227,29 @@ import '../styles/global.css';
             </section>
           </div>
         </div>
+
+        <section class="mt-6 grid gap-6 lg:grid-cols-2" aria-label="Resúmenes de gastos">
+          <section class="rounded-3xl border border-line bg-white p-5 shadow-sm shadow-ink/[0.025] sm:p-6">
+            <div class="mb-5">
+              <p class="text-xs font-bold uppercase tracking-[0.15em] text-leaf">Resumen</p>
+              <h2 class="mt-1 font-bold tracking-tight">Gastos por persona</h2>
+              <p class="mt-1 text-sm text-muted">Lo que le corresponde a cada quien y cuánto pagó.</p>
+            </div>
+            <ul id="person-expense-summary" class="space-y-3" aria-label="Totales de gastos por persona" aria-live="polite"></ul>
+            <p id="person-expense-summary-empty" class="rounded-2xl bg-paper px-4 py-4 text-sm leading-6 text-muted">Añade participantes y gastos para ver este resumen.</p>
+          </section>
+
+          <section class="rounded-3xl border border-line bg-white p-5 shadow-sm shadow-ink/[0.025] sm:p-6">
+            <div class="mb-5">
+              <p class="text-xs font-bold uppercase tracking-[0.15em] text-leaf">Resumen</p>
+              <h2 class="mt-1 font-bold tracking-tight">Gastos por día</h2>
+              <p class="mt-1 text-sm text-muted">Total acumulado en cada fecha con gastos.</p>
+            </div>
+            <ul id="daily-expense-summary" class="space-y-3" aria-label="Totales de gastos por día" aria-live="polite"></ul>
+            <p id="daily-expense-summary-empty" class="rounded-2xl bg-paper px-4 py-4 text-sm leading-6 text-muted">Cuando registres gastos, aparecerán agrupados por día.</p>
+          </section>
+        </section>
+
         <footer class="mt-10 text-center text-xs text-muted">Hecho para disfrutar más y cuadrar menos.</footer>
       </main>
     </div>

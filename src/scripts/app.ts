@@ -14,7 +14,14 @@ const STORAGE_KEY = 'vaquita-trips-v1';
 const LEGACY_STORAGE_KEY = 'vaquita-trip-v1';
 const amountFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const formatMoney = (cents: number) => `S/. ${amountFormat.format(cents / 100)}`;
-const dateFormat = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
+const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const dateFormat = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: browserTimeZone });
+const summaryDateFormat = new Intl.DateTimeFormat('es-ES', {
+  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: browserTimeZone,
+});
+const dayKeyFormat = new Intl.DateTimeFormat('en-CA', {
+  year: 'numeric', month: '2-digit', day: '2-digit', timeZone: browserTimeZone,
+});
 const newTrip = (name = 'Nuestra salida'): Trip => ({ id: makeId(), name, people: [], expenses: [], transfers: [] });
 
 const savedState = loadTrips();
@@ -66,6 +73,10 @@ const elements = {
   expenseCount: byId<HTMLParagraphElement>('expense-count'),
   expenseList: byId<HTMLUListElement>('expense-list'),
   expensesEmpty: byId<HTMLParagraphElement>('expenses-empty'),
+  personExpenseSummary: byId<HTMLUListElement>('person-expense-summary'),
+  personExpenseSummaryEmpty: byId<HTMLParagraphElement>('person-expense-summary-empty'),
+  dailyExpenseSummary: byId<HTMLUListElement>('daily-expense-summary'),
+  dailyExpenseSummaryEmpty: byId<HTMLParagraphElement>('daily-expense-summary-empty'),
   suggestionList: byId<HTMLUListElement>('suggestion-list'),
   suggestionsEmpty: byId<HTMLParagraphElement>('suggestions-empty'),
   transferForm: byId<HTMLFormElement>('transfer-form'),
@@ -293,6 +304,45 @@ function renderExpenses() {
   }).join('');
 }
 
+function renderExpenseSummaries() {
+  const totalsByPerson = new Map(trip.people.map(({ id }) => [id, { shared: 0, paid: 0 }]));
+  const totalsByDay = new Map<string, { date: Date; amount: number; count: number }>();
+
+  for (const expense of trip.expenses) {
+    const payerTotals = totalsByPerson.get(expense.paidBy);
+    if (payerTotals) payerTotals.paid += expense.amountCents;
+
+    for (const [personId, share] of Object.entries(expense.shares)) {
+      const personTotals = totalsByPerson.get(personId);
+      if (personTotals) personTotals.shared += share;
+    }
+
+    const date = new Date(expense.createdAt);
+    if (Number.isNaN(date.getTime())) continue;
+    const dayKey = dayKeyFormat.format(date);
+    const dayTotals = totalsByDay.get(dayKey) ?? { date, amount: 0, count: 0 };
+    dayTotals.amount += expense.amountCents;
+    dayTotals.count += 1;
+    totalsByDay.set(dayKey, dayTotals);
+  }
+
+  elements.personExpenseSummaryEmpty.hidden = trip.people.length > 0;
+  elements.personExpenseSummary.innerHTML = trip.people.map((person) => {
+    const totals = totalsByPerson.get(person.id) ?? { shared: 0, paid: 0 };
+    return `<li class="flex items-center justify-between gap-4 rounded-2xl bg-paper px-4 py-3">
+      <span class="min-w-0 truncate text-sm font-semibold">${escapeHtml(person.name)}</span>
+      <span class="shrink-0 text-right"><span class="block text-sm font-bold">${formatMoney(totals.shared)}</span><span class="block text-xs text-muted">Le corresponde · pagó ${formatMoney(totals.paid)}</span></span>
+    </li>`;
+  }).join('');
+
+  const dailyTotals = [...totalsByDay.values()].sort((a, b) => b.date.getTime() - a.date.getTime());
+  elements.dailyExpenseSummaryEmpty.hidden = dailyTotals.length > 0;
+  elements.dailyExpenseSummary.innerHTML = dailyTotals.map(({ date, amount, count }) => `<li class="flex items-center justify-between gap-4 rounded-2xl bg-paper px-4 py-3">
+    <span class="min-w-0"><span class="block text-sm font-semibold capitalize">${summaryDateFormat.format(date)}</span><span class="block text-xs text-muted">${count} ${count === 1 ? 'gasto' : 'gastos'}</span></span>
+    <span class="shrink-0 text-sm font-bold">${formatMoney(amount)}</span>
+  </li>`).join('');
+}
+
 function renderSuggestions() {
   const balances = calculateBalances(trip.people, trip.expenses, trip.transfers);
   const suggestions = suggestPayments(balances);
@@ -318,6 +368,7 @@ function render() {
   renderPeople();
   renderBalances();
   renderExpenses();
+  renderExpenseSummaries();
   renderSuggestions();
   renderTransfers();
   saveTrip();
