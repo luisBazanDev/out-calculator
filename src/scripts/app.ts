@@ -53,6 +53,7 @@ const elements = {
   clearTrip: byId<HTMLButtonElement>('clear-trip'),
   shareTrip: byId<HTMLButtonElement>('share-trip'),
   shareStatus: byId<HTMLSpanElement>('share-status'),
+  exportPdf: byId<HTMLButtonElement>('export-pdf'),
   importTrip: byId<HTMLButtonElement>('import-trip'),
   downloadTrip: byId<HTMLButtonElement>('download-trip'),
   tripFile: byId<HTMLInputElement>('trip-file'),
@@ -518,6 +519,20 @@ elements.tripSwitcher.addEventListener('change', () => {
 
 elements.shareTrip.addEventListener('click', () => {
   void copyShareLink();
+});
+
+elements.exportPdf.addEventListener('click', async () => {
+  elements.exportPdf.disabled = true;
+  elements.shareStatus.textContent = 'Preparando PDF…';
+  try {
+    const { downloadTripPdf } = await import('../lib/pdf');
+    await downloadTripPdf(trip);
+    elements.shareStatus.textContent = 'PDF descargado.';
+  } catch {
+    elements.shareStatus.textContent = 'No se pudo generar el PDF.';
+  } finally {
+    elements.exportPdf.disabled = isSharedPreview;
+  }
 });
 
 elements.downloadTrip.addEventListener('click', () => {
