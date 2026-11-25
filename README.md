@@ -2,7 +2,7 @@
 
 App estática para repartir gastos de una salida entre amigos. Permite guardar gastos con reparto igual o personalizado, registrar pagos ya realizados y calcular quién debe pagar a quién. Las salidas se guardan en `localStorage` en el navegador y se pueden compartir como una copia incluida en un enlace.
 
-Los enlaces compartidos contienen los datos codificados en Base64 URL-safe dentro del fragmento `#share-content`. No hay sincronización: cada enlace es una instantánea, y cualquiera que lo reciba podrá ver su contenido. Al abrirlo, la app muestra una vista previa de solo lectura; guardarla crea una salida nueva y no reemplaza las salidas locales.
+Los enlaces compartidos contienen los datos comprimidos y codificados en Base64 URL-safe dentro del fragmento `#share-content`. También se pueden descargar e importar salidas como archivos JSON; si una salida no cabe en un enlace, al compartirla se descarga el archivo automáticamente. Los enlaces anteriores sin comprimir siguen siendo compatibles. No hay sincronización: cada enlace o archivo es una instantánea, y cualquiera que lo reciba podrá ver su contenido. Al abrir un enlace, la app muestra una vista previa de solo lectura; guardarla crea una salida nueva y no reemplaza las salidas locales.
 
 ## Desarrollo
 

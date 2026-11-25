@@ -1,4 +1,5 @@
 import type { Expense, Person, Transfer } from './balances';
+import { deflateSync, inflateSync } from 'fflate';
 
 export interface SharedTrip {
   name: string;
@@ -9,6 +10,7 @@ export interface SharedTrip {
 
 const SHARE_VERSION = 1;
 const MAX_ENCODED_LENGTH = 16_000;
+const MAX_DECOMPRESSED_LENGTH = 2_000_000;
 const MAX_PEOPLE = 100;
 const MAX_EXPENSES = 500;
 const MAX_TRANSFERS = 1_000;
@@ -125,9 +127,12 @@ function validateTrip(value: unknown): SharedTrip {
 
 export function encodeSharedTrip(trip: SharedTrip): string {
   const payload = JSON.stringify({ version: SHARE_VERSION, trip: validateTrip(trip) });
-  const bytes = new TextEncoder().encode(payload);
+  const bytes = deflateSync(new TextEncoder().encode(payload));
+  if (bytes.length > Math.floor((MAX_ENCODED_LENGTH - 2) * 3 / 4)) {
+    throw new Error('La salida es demasiado grande para compartirla en un enlace.');
+  }
   const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join('');
-  const encoded = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  const encoded = `z.${btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')}`;
   if (encoded.length > MAX_ENCODED_LENGTH) {
     throw new Error('La salida es demasiado grande para compartirla en un enlace.');
   }
@@ -135,15 +140,26 @@ export function encodeSharedTrip(trip: SharedTrip): string {
 }
 
 export function decodeSharedTrip(encoded: string): SharedTrip {
-  if (!encoded || encoded.length > MAX_ENCODED_LENGTH || !/^[A-Za-z0-9_-]+$/.test(encoded)) {
+  if (!encoded || encoded.length > MAX_ENCODED_LENGTH) {
     throw new Error('El enlace compartido está incompleto o es demasiado grande.');
   }
 
   try {
-    const base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+    const isCompressed = encoded.startsWith('z.');
+    const content = isCompressed ? encoded.slice(2) : encoded;
+    if (!/^[A-Za-z0-9_-]+$/.test(content)) {
+      throw new Error('El enlace compartido está incompleto o es demasiado grande.');
+    }
+    const base64 = content.replace(/-/g, '+').replace(/_/g, '/');
     const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='));
     const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-    const payload: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+    const payloadBytes = isCompressed
+      ? inflateSync(bytes, { out: new Uint8Array(MAX_DECOMPRESSED_LENGTH) })
+      : bytes;
+    if (isCompressed && payloadBytes.byteLength === MAX_DECOMPRESSED_LENGTH) {
+      throw new Error('El enlace compartido está incompleto o es demasiado grande.');
+    }
+    const payload: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(payloadBytes));
     if (!isRecord(payload) || payload.version !== SHARE_VERSION) {
       throw new Error('Esta versión del enlace compartido no es compatible.');
     }
@@ -153,5 +169,20 @@ export function decodeSharedTrip(encoded: string): SharedTrip {
     if (error instanceof Error && error.message.startsWith('Esta versión')) throw error;
     if (error instanceof Error && /participantes|gastos|pagos|repartos|partes/.test(error.message)) throw error;
     throw new Error('No se pudo leer el enlace compartido. Puede estar dañado.');
+  }
+}
+
+export function exportSharedTrip(trip: SharedTrip): string {
+  return JSON.stringify(validateTrip(trip), null, 2);
+}
+
+export function importSharedTripFile(contents: string): SharedTrip {
+  try {
+    return validateTrip(JSON.parse(contents));
+  } catch (error) {
+    if (error instanceof Error && /participantes|gastos|pagos|repartos|partes|formato/.test(error.message)) {
+      throw error;
+    }
+    throw new Error('No se pudo leer el archivo. Comprueba que sea un archivo JSON de Vaquita.');
   }
 }

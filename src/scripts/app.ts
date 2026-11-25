@@ -6,7 +6,13 @@ import {
   type Person,
   type Transfer,
 } from '../lib/balances';
-import { decodeSharedTrip, encodeSharedTrip, type SharedTrip } from '../lib/sharing';
+import {
+  decodeSharedTrip,
+  encodeSharedTrip,
+  exportSharedTrip,
+  importSharedTripFile,
+  type SharedTrip,
+} from '../lib/sharing';
 
 interface Trip extends SharedTrip { id: string }
 
@@ -47,6 +53,9 @@ const elements = {
   clearTrip: byId<HTMLButtonElement>('clear-trip'),
   shareTrip: byId<HTMLButtonElement>('share-trip'),
   shareStatus: byId<HTMLSpanElement>('share-status'),
+  importTrip: byId<HTMLButtonElement>('import-trip'),
+  downloadTrip: byId<HTMLButtonElement>('download-trip'),
+  tripFile: byId<HTMLInputElement>('trip-file'),
   saveStatus: byId<HTMLSpanElement>('save-status'),
   sharedBanner: byId<HTMLElement>('shared-banner'),
   sharedMessage: byId<HTMLParagraphElement>('shared-message'),
@@ -384,8 +393,26 @@ function clearShareFromUrl() {
 
 async function copyShareLink() {
   elements.shareStatus.textContent = '';
+  let payload: string;
   try {
-    const payload = encodeSharedTrip(trip);
+    payload = encodeSharedTrip(trip);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('demasiado grande')) {
+      try {
+        downloadTripFile();
+        elements.shareStatus.textContent = 'No cabe en un enlace; descargamos un archivo para compartir.';
+      } catch {
+        elements.shareStatus.textContent = 'No se pudo crear el enlace ni descargar el archivo.';
+      }
+      return;
+    }
+    elements.shareStatus.textContent = error instanceof Error
+      ? error.message
+      : 'No se pudo crear el enlace compartido.';
+    return;
+  }
+
+  try {
     const url = new URL(window.location.href);
     url.searchParams.delete('share-content');
     url.hash = `share-content=${payload}`;
@@ -395,6 +422,45 @@ async function copyShareLink() {
     elements.shareStatus.textContent = error instanceof Error
       ? error.message
       : 'No se pudo crear el enlace compartido.';
+  }
+}
+
+function downloadTripFile() {
+  const blob = new Blob([exportSharedTrip(trip)], { type: 'application/json;charset=utf-8' });
+  const objectUrl = URL.createObjectURL(blob);
+  const fileName = trip.name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9-_]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLocaleLowerCase('es') || 'salida';
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = `${fileName}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+}
+
+async function importTripFile(file: File) {
+  try {
+    const imported = importSharedTripFile(await file.text());
+    const importedTrip: Trip = { ...imported, id: makeId() };
+    savedTrips.push(importedTrip);
+    activeTripId = importedTrip.id;
+    trip = importedTrip;
+    selectedPeople = new Set(importedTrip.people.map(({ id }) => id));
+    customShares = {};
+    isSharedPreview = false;
+    sharedLink.error = null;
+    clearShareFromUrl();
+    render();
+    elements.shareStatus.textContent = 'Archivo importado como una nueva salida.';
+  } catch (error) {
+    elements.shareStatus.textContent = error instanceof Error
+      ? error.message
+      : 'No se pudo importar el archivo.';
   }
 }
 
@@ -452,6 +518,27 @@ elements.tripSwitcher.addEventListener('change', () => {
 
 elements.shareTrip.addEventListener('click', () => {
   void copyShareLink();
+});
+
+elements.downloadTrip.addEventListener('click', () => {
+  try {
+    downloadTripFile();
+    elements.shareStatus.textContent = 'Archivo descargado.';
+  } catch (error) {
+    elements.shareStatus.textContent = error instanceof Error
+      ? error.message
+      : 'No se pudo descargar el archivo.';
+  }
+});
+
+elements.importTrip.addEventListener('click', () => {
+  elements.tripFile.value = '';
+  elements.tripFile.click();
+});
+
+elements.tripFile.addEventListener('change', () => {
+  const file = elements.tripFile.files?.[0];
+  if (file) void importTripFile(file);
 });
 
 elements.saveSharedCopy.addEventListener('click', saveSharedCopy);
